@@ -1,0 +1,30 @@
+*{
+    font-family: Verdana;
+}
+
+table{
+    border-collapse: collapse;
+    align: center !important;
+    margin: auto; !important;
+}
+
+td,
+th {
+    border : 1px solid-black !important;
+    text-align: center !important;
+    padding : 5px !important;
+    font-size: 19px !important;
+    align : center !important;
+    width: 6% !important;
+}
+
+h1{
+    font-size: 40px !important;
+}
+
+h2{
+    font-size: 35px !important;
+}
+
+
+
