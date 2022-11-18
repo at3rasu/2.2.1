@@ -132,7 +132,7 @@ class Report:
             raise TypeError('')
         if os.path.basename(result_file).split('.')[1] != "xlsx":
             raise TypeError('')
-        if not os.path.exists(result_file):
+        if os.path.exists(result_file):
             raise FileExistsError("")
         wb.save(result_file)
 
