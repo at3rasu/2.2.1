@@ -100,7 +100,7 @@ def add_missing_years(param_salary : List[ParamSalary]) -> List[ParamSalary]:
 
 
 class Report:
-    def __init__(self, profession : str, years: List[int], average_salary : List[int], average_salary_profession : List[int], count_vacancies_by_year : List[int], count_vacancies_by_year_prof : List[int], city_salary : Dict[str, int], city_vacancies : Dict[str, int]):
+    def __init__(self, profession : str, years: List[int], average_salary : List[int], average_salary_profession : List[int], count_vacancies_by_year : List[int], count_vacancies_by_year_prof : List[int], city_salary : Dict[str, int], city_vacancies : Dict[str, int], file_name):
         self.years = years
         self.average_salary = average_salary
         self.average_salary_profession = average_salary_profession
@@ -109,18 +109,24 @@ class Report:
         self.city_salary = city_salary
         self.city_vacancies = city_vacancies
         self.profession = profession
+        self.file_name = file_name
 
     def generate_excel(self) -> None:
+        if not isinstance(self.file_name, str):
+            raise TypeError('')
+        if os.path.basename(self.file_name).split('.')[1] != "xlsx":
+            raise TypeError('')
+        if os.path.exists(self.file_name):
+            raise FileExistsError("")
         columns = ["Год", "Средняя зарплата", f"Средняя зарплата - {self.profession}", "Количество вакансий", f"Количество вакансий - {self.profession}"]
         df = pd.DataFrame([[self.years[i], self.average_salary[i], self.average_salary_profession[i], self.count_vacancies_by_year[i], self.count_vacancies_by_year_prof[i]] for i in range(len(self.years))], columns=columns)
         cities_of_salary, salaries = [city for city in city_salary], [city_salary[city] for city in city_salary]
         cities_of_vacancy, vacancies = [city for city in city_vacancies], ['{:.2f}'.format(city_vacancies[city] * 100) + "%" for city in city_vacancies]
         df2 = pd.DataFrame([[cities_of_salary[i], salaries[i], "", cities_of_vacancy[i], vacancies[i]] for i in range(len(cities_of_salary))], columns=["Город", "Уровень зарплат", "", "Город", "Доля вакансий"])
-        result_file = 'report.xlsx'
-        with pd.ExcelWriter(result_file, engine='xlsxwriter') as writer:
+        with pd.ExcelWriter(self.file_name, engine='xlsxwriter') as writer:
             df.to_excel(writer, sheet_name='Статистика по годам', index=False)
             df2.to_excel(writer, sheet_name="Статистика по городам", index=False)
-        wb = openpyxl.load_workbook(result_file)
+        wb = openpyxl.load_workbook(self.file_name)
         worksheet1 = wb["Статистика по годам"]
         worksheet2 = wb["Статистика по городам"]
         thin = Side(border_style="thin")
@@ -128,13 +134,7 @@ class Report:
         self.__add_border_and_align(worksheet2, thin, max(len(cities_of_salary) + 2, len(cities_of_vacancy) + 2), ["A", "B", "C", "D", "E"])
         self.__make_max_column_width(worksheet1)
         self.__make_max_column_width(worksheet2)
-        if not isinstance(result_file, str):
-            raise TypeError('')
-        if os.path.basename(result_file).split('.')[1] != "xlsx":
-            raise TypeError('')
-        if os.path.exists(result_file):
-            raise FileExistsError("")
-        wb.save(result_file)
+        wb.save(self.file_name)
 
     def __add_border_and_align(self, worksheet : Worksheet, side : Side, count_columns : int, rows : List[str]) -> None:
         for i in range(1, count_columns):
@@ -185,5 +185,6 @@ report = Report(profession=input_data[1],
                 count_vacancies_by_year=[year_vacancy[i] for i in year_vacancy],
                 count_vacancies_by_year_prof=[professions_year_vacancies[i] for i in professions_year_vacancies],
                 city_salary=city_salary,
-                city_vacancies=city_vacancies)
+                city_vacancies=city_vacancies,
+                file_name="report.xlsx")
 report.generate_excel()
