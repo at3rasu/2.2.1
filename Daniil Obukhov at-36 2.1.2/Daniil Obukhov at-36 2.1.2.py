@@ -102,6 +102,12 @@ class Graphic:
                  average_salary_profession: List[int], count_vacancies_by_year: List[int],
                  count_vacancies_by_year_prof: List[int], city_salary: Dict[str, int], city_vacancies: Dict[str, int],
                  file_name : str):
+        if not isinstance(file_name, str):
+            raise TypeError('')
+        if os.path.basename(file_name).split('.')[1] != "png":
+            raise TypeError('')
+        if os.path.exists(file_name):
+            raise FileExistsError("")
         self.years = years
         self.average_salary = average_salary
         self.average_salary_profession = average_salary_profession
@@ -117,12 +123,6 @@ class Graphic:
         self.__pie_graph(ax4)
         plt.tight_layout()
         plt.show()
-        if not isinstance(file_name, str):
-            raise TypeError('')
-        if os.path.basename(file_name).split('.')[1] != "png":
-            raise TypeError('')
-        if os.path.exists(file_name):
-            raise FileExistsError("")
         fig.savefig(file_name)
 
     def __grouped_bar_graph(self, ax, title : str, values_x : List[int], values_y : List[int], values_x2 : List[int], label_x : str, label_x2 : str):
