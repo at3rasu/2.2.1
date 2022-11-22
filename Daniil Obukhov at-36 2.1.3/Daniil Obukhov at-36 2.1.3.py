@@ -15,19 +15,6 @@ from jinja2 import Environment, FileSystemLoader
 import pdfkit
 from xlsx2html import xlsx2html
 
-currency_to_rub = {
-    "AZN": 35.68,
-    "BYR": 23.91,
-    "EUR": 59.90,
-    "GEL": 21.74,
-    "KGS": 0.76,
-    "KZT": 0.13,
-    "RUR": 1,
-    "UAH": 1.64,
-    "USD": 60.66,
-    "UZS": 0.0055
-}
-
 
 class Salary:
     def __init__(self, salary_from : str, salary_to : str, salary_currency : str):
@@ -70,13 +57,26 @@ class DataSet:
 
 class ParamSalary:
     def __init__(self, param : str, salary: Salary):
+        self.currency_to_rub = {
+            "AZN": 35.68,
+            "BYR": 23.91,
+            "EUR": 59.90,
+            "GEL": 21.74,
+            "KGS": 0.76,
+            "KZT": 0.13,
+            "RUR": 1,
+            "UAH": 1.64,
+            "USD": 60.66,
+            "UZS": 0.0055
+        }
+
         self.param = param
-        self.salary = int(salary.average_salary * currency_to_rub[salary.salary_currency])
+        self.salary = int(salary.average_salary * self.currency_to_rub[salary.salary_currency])
         self.count_vacancy = 1
 
     def add_salary(self, new_salary : Salary) -> None:
         self.count_vacancy += 1
-        self.salary = self.salary + new_salary.average_salary * currency_to_rub[new_salary.salary_currency]
+        self.salary = self.salary + new_salary.average_salary * self.currency_to_rub[new_salary.salary_currency]
 
 
 class Report:
