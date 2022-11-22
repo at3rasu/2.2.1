@@ -79,32 +79,6 @@ class ParamSalary:
         self.salary = self.salary + new_salary.average_salary * currency_to_rub[new_salary.salary_currency]
 
 
-def convert_to_param_salary(vacancies: List[Vacancy], comparison_param : str) -> (List[ParamSalary]):
-    param_salary = {}
-    for vacancy in vacancies:
-        dict_comparison_params = {"year" : vacancy.year, "city" : vacancy.area_name}
-        param = dict_comparison_params[comparison_param]
-        if not param_salary.__contains__(param):
-            param_salary[param] = ParamSalary(param, vacancy.salary)
-        else:
-            param_salary[param].add_salary(vacancy.salary)
-    return [param_salary[d] for d in param_salary]
-
-
-def convert_from_param_salary_to_dict(param_salary : List[ParamSalary]) -> (Dict[int, int], Dict[int, int]):
-    return {x: y for x, y in zip([int(r.param) for r in param_salary], [0 if v.count_vacancy == 0 else int(v.salary / v.count_vacancy) for v in param_salary])}, {x: y for x, y in zip([int(r.param) for r in param_salary], [v.count_vacancy for v in param_salary])}
-
-
-def add_missing_years(param_salary : List[ParamSalary]) -> List[ParamSalary]:
-    years = [i.param for i in year_salary]
-    s_years = [el.param for el in param_salary]
-    for y in years:
-        if y not in s_years:
-            param_salary.insert(int(y) - int(years[0]), ParamSalary(y, Salary("0", "0", "RUR")))
-            param_salary[int(y) - int(years[0])].count_vacancy = 0
-    return param_salary
-
-
 class Report:
     def __init__(self, profession : str, years: List[int], average_salary : List[int], average_salary_profession : List[int], count_vacancies_by_year : List[int], count_vacancies_by_year_prof : List[int], city_salary : Dict[str, int], city_vacancies : Dict[str, int], file_name):
         self.years = years
@@ -127,8 +101,8 @@ class Report:
         df = [[self.years[i], self.average_salary[i], self.average_salary_profession[i], self.count_vacancies_by_year[i], self.count_vacancies_by_year_prof[i]] for i in range(len(self.years))]
         df.insert(0, ["Год", "Средняя зарплата", f"Средняя зарплата - {self.profession}", "Количество вакансий", f"Количество вакансий - {self.profession}"])
         df = pd.DataFrame(df, columns=None)
-        cities_of_salary, salaries = [city for city in city_salary], [city_salary[city] for city in city_salary]
-        cities_of_vacancy, vacancies = [city for city in city_vacancies], ['{:.2f}'.format(city_vacancies[city] * 100) + "%" for city in city_vacancies]
+        cities_of_salary, salaries = [city for city in self.city_salary], [self.city_salary[city] for city in self.city_salary]
+        cities_of_vacancy, vacancies = [city for city in self.city_vacancies], ['{:.2f}'.format(self.city_vacancies[city] * 100) + "%" for city in self.city_vacancies]
         df2 = [[cities_of_salary[i], salaries[i], "", cities_of_vacancy[i], vacancies[i]] for i in range(len(cities_of_salary))]
         df2.insert(0, ["Город", "Уровень зарплат", "", "Город", "Доля вакансий"])
         df2 = pd.DataFrame(df2, columns=None)
@@ -194,7 +168,7 @@ class Graphic:
         self.__horizontal_graph(ax3)
         self.__pie_graph(ax4)
         plt.tight_layout()
-        #plt.show()
+        plt.show()
         fig.savefig(file_name)
 
     def __grouped_bar_graph(self, ax, title: str, values_x: List[int], values_y: List[int], values_x2: List[int],
@@ -223,8 +197,8 @@ class Graphic:
         plt.style.use('_mpl-gallery-nogrid')
         for label in (ax.get_xticklabels() + ax.get_yticklabels()):
             label.set_fontsize(16)
-        vacancies = [city_vacancies[v] * 100 for v in city_vacancies]
-        cities = [city for city in city_vacancies]
+        vacancies = [self.city_vacancies[v] * 100 for v in self.city_vacancies]
+        cities = [city for city in self.city_vacancies]
         sum_vacancies = sum(vacancies)
         if sum_vacancies != 100:
             vacancies.insert(0, 100 - sum_vacancies)
@@ -234,7 +208,7 @@ class Graphic:
 
 
 class PdfConverter:
-    def __init__(self, graph_name :str, excel_file_name : str, profession : str):
+    def __init__(self, graph_name : str, excel_file_name : str, profession : str):
         self.graph = graph_name
         self.excel_file = excel_file_name
         self.prof = profession
@@ -242,64 +216,95 @@ class PdfConverter:
     def generate_pdf(self):
         env = Environment(loader=FileSystemLoader('.'))
         template = env.get_template("pdf_template.html")
+        graph_path = os.path.abspath(self.graph)
         out_stream2 = xlsx2html('report.xlsx', sheet="Статистика по городам")
         out_stream2.seek(0)
         out_stream = xlsx2html('report.xlsx', sheet="Статистика по годам")
         out_stream.seek(0)
         pdf_template = template.render({"prof" : self.prof,
-                                        "first": self.graph,
+                                        "graph": graph_path,
                                         "first_table" : out_stream.read(),
                                         "second_table" : out_stream2.read()})
         config = pdfkit.configuration(wkhtmltopdf=r'C:\Program Files\wkhtmltopdf\bin\wkhtmltopdf.exe')
         pdfkit.from_string(pdf_template, 'report.pdf', configuration=config, options={"enable-local-file-access": ""})
 
 
-input_data = []
-for question in ["Введите название файла: ", "Введите название профессии: "]:
-    print(question, end="")
-    input_data.append(input())
-data = DataSet(input_data[0]).vacancies_objects
-data_profession = [d for d in data if input_data[1] in d.name]
-year_salary = convert_to_param_salary(data, "year")
-cities_salary = convert_to_param_salary(data, "city")
-professions_year_salary = add_missing_years(convert_to_param_salary(data_profession, "year"))
-city_salary = dict(sorted({x: y for x, y in zip([r.param for r in cities_salary], [int(v.salary / v.count_vacancy) for v in cities_salary])}.items(), key=itemgetter(1), reverse=True))
-city_vacancies = dict(sorted({x: y for x, y in zip([r.param for r in cities_salary], [v.count_vacancy / len(data) for v in cities_salary])}.items(), key=itemgetter(1), reverse=True))
-year_salary, year_vacancy = convert_from_param_salary_to_dict(year_salary)
-professions_year_salary, professions_year_vacancies = convert_from_param_salary_to_dict(professions_year_salary)
-city_salary = {x : y for x, y in zip([key for key in city_salary if city_vacancies[key] >= 0.01][:10], [city_salary[key] for key in city_salary if city_vacancies[key] >= 0.01])}
-city_vacancies = {x : y for x, y in zip([key for key in city_vacancies if city_vacancies[key] >= 0.01][:10], [float('{:.4f}'.format(city_vacancies[key])) for key in city_vacancies if city_vacancies[key] >= 0.01])}
-output_data = { "Динамика уровня зарплат по годам:" : year_salary,
-                "Динамика количества вакансий по годам:" : year_vacancy,
-                "Динамика уровня зарплат по годам для выбранной профессии:" : professions_year_salary,
-                "Динамика количества вакансий по годам для выбранной профессии:" : professions_year_vacancies,
-                "Уровень зарплат по городам (в порядке убывания):" : city_salary,
-                "Доля вакансий по городам (в порядке убывания):" : city_vacancies}
-[print(i, output_data[i]) for i in output_data]
-excel_file = "report.xlsx"
-profession = input_data[1]
-report = Report(profession=profession,
-                years=[i for i in year_salary],
-                average_salary=[year_salary[i] for i in year_salary],
-                average_salary_profession=[professions_year_salary[i] for i in professions_year_salary],
-                count_vacancies_by_year=[year_vacancy[i] for i in year_vacancy],
-                count_vacancies_by_year_prof=[professions_year_vacancies[i] for i in professions_year_vacancies],
-                city_salary=city_salary,
-                city_vacancies=city_vacancies,
-                file_name=excel_file)
-report.generate_excel()
-graph_name = "graph.png"
-graph = Graphic(profession=profession,
-                years=[i for i in year_salary],
-                average_salary=[year_salary[i] for i in year_salary],
-                average_salary_profession=[professions_year_salary[i] for i in professions_year_salary],
-                count_vacancies_by_year=[year_vacancy[i] for i in year_vacancy],
-                count_vacancies_by_year_prof=[professions_year_vacancies[i] for i in professions_year_vacancies],
-                city_salary=city_salary,
-                city_vacancies=city_vacancies,
-                file_name=graph_name)
+class InputConnect:
+    def __init__(self):
+        self.input_data = []
+        for question in ["Введите название файла: ", "Введите название профессии: "]:
+            print(question, end="")
+            self.input_data.append(input())
+        self.__process_data()
 
-pdf = PdfConverter(graph_name=graph_name,
-                   excel_file_name=excel_file,
-                   profession=profession)
-pdf.generate_pdf()
+    def __process_data(self) -> None:
+        data = DataSet(self.input_data[0]).vacancies_objects
+        data_profession = [d for d in data if self.input_data[1] in d.name]
+        year_salary = self.__convert_to_param_salary(data, "year")
+        cities_salary = self.__convert_to_param_salary(data, "city")
+        professions_year_salary = self.__add_missing_years(self.__convert_to_param_salary(data_profession, "year"), year_salary)
+        city_salary = dict(sorted({x: y for x, y in zip([r.param for r in cities_salary], [int(v.salary / v.count_vacancy) for v in cities_salary])}.items(), key=itemgetter(1), reverse=True))
+        city_vacancies = dict(sorted({x: y for x, y in zip([r.param for r in cities_salary], [v.count_vacancy / len(data) for v in cities_salary])}.items(), key=itemgetter(1), reverse=True))
+        year_salary, year_vacancy = self.__convert_from_param_salary_to_dict(year_salary)
+        professions_year_salary, professions_year_vacancies = self.__convert_from_param_salary_to_dict(professions_year_salary)
+        city_salary = {x : y for x, y in zip([key for key in city_salary if city_vacancies[key] >= 0.01][:10], [city_salary[key] for key in city_salary if city_vacancies[key] >= 0.01])}
+        city_vacancies = {x : y for x, y in zip([key for key in city_vacancies if city_vacancies[key] >= 0.01][:10], [float('{:.4f}'.format(city_vacancies[key])) for key in city_vacancies if city_vacancies[key] >= 0.01])}
+        output_data = { "Динамика уровня зарплат по годам:" : year_salary,
+                        "Динамика количества вакансий по годам:" : year_vacancy,
+                        "Динамика уровня зарплат по годам для выбранной профессии:" : professions_year_salary,
+                        "Динамика количества вакансий по годам для выбранной профессии:" : professions_year_vacancies,
+                        "Уровень зарплат по городам (в порядке убывания):" : city_salary,
+                        "Доля вакансий по городам (в порядке убывания):" : city_vacancies}
+        [print(i, output_data[i]) for i in output_data]
+        excel_file = "report.xlsx"
+        profession = self.input_data[1]
+        report = Report(profession=profession,
+                        years=[i for i in year_salary],
+                        average_salary=[year_salary[i] for i in year_salary],
+                        average_salary_profession=[professions_year_salary[i] for i in professions_year_salary],
+                        count_vacancies_by_year=[year_vacancy[i] for i in year_vacancy],
+                        count_vacancies_by_year_prof=[professions_year_vacancies[i] for i in professions_year_vacancies],
+                        city_salary=city_salary,
+                        city_vacancies=city_vacancies,
+                        file_name=excel_file)
+        report.generate_excel()
+        graph_name = "graph.png"
+        graph = Graphic(profession=profession,
+                        years=[i for i in year_salary],
+                        average_salary=[year_salary[i] for i in year_salary],
+                        average_salary_profession=[professions_year_salary[i] for i in professions_year_salary],
+                        count_vacancies_by_year=[year_vacancy[i] for i in year_vacancy],
+                        count_vacancies_by_year_prof=[professions_year_vacancies[i] for i in professions_year_vacancies],
+                        city_salary=city_salary,
+                        city_vacancies=city_vacancies,
+                        file_name=graph_name)
+        pdf = PdfConverter(graph_name=graph_name,
+                           excel_file_name=excel_file,
+                           profession=profession)
+        pdf.generate_pdf()
+
+    def __convert_to_param_salary(self, vacancies: List[Vacancy], comparison_param: str) -> (List[ParamSalary]):
+        param_salary = {}
+        for vacancy in vacancies:
+            dict_comparison_params = {"year": vacancy.year, "city": vacancy.area_name}
+            param = dict_comparison_params[comparison_param]
+            if not param_salary.__contains__(param):
+                param_salary[param] = ParamSalary(param, vacancy.salary)
+            else:
+                param_salary[param].add_salary(vacancy.salary)
+        return [param_salary[d] for d in param_salary]
+
+    def __convert_from_param_salary_to_dict(self, param_salary: List[ParamSalary]) -> (Dict[int, int], Dict[int, int]):
+        return {x: y for x, y in zip([int(r.param) for r in param_salary],[0 if v.count_vacancy == 0 else int(v.salary / v.count_vacancy) for v in param_salary])}, {x: y for x, y in zip([int(r.param) for r in param_salary],[v.count_vacancy for v in param_salary])}
+
+    def __add_missing_years(self, param_salary: List[ParamSalary], year_salary : (Dict[int, int], Dict[int, int])) -> List[ParamSalary]:
+        years = [i.param for i in year_salary]
+        s_years = [el.param for el in param_salary]
+        for y in years:
+            if y not in s_years:
+                param_salary.insert(int(y) - int(years[0]), ParamSalary(y, Salary("0", "0", "RUR")))
+                param_salary[int(y) - int(years[0])].count_vacancy = 0
+        return param_salary
+
+
+InputConnect()
